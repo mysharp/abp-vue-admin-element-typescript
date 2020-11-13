@@ -1,8 +1,10 @@
 ﻿using DotNetCore.CAP;
+using LINGYUN.Abp.Account;
 using LINGYUN.Abp.EventBus.CAP;
 using LINGYUN.Abp.IdentityServer;
 using LINGYUN.Abp.MultiTenancy.DbFinder;
 using LINGYUN.Abp.PermissionManagement.Identity;
+using LINYUN.Abp.Sms.Aliyun;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.DataProtection;
@@ -17,6 +19,7 @@ using System.Linq;
 using System.Text;
 using Volo.Abp;
 using Volo.Abp.Account;
+using Volo.Abp.Account.Localization;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.Authentication.JwtBearer;
 using Volo.Abp.AspNetCore.Mvc;
@@ -44,10 +47,12 @@ using Volo.Abp.SettingManagement.EntityFrameworkCore;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
 using Volo.Abp.Threading;
 using Volo.Abp.UI.Navigation.Urls;
+using Volo.Abp.VirtualFileSystem;
 
 namespace AuthServer.Host
 {
     [DependsOn(
+        typeof(AbpAccountDomainModule),
         typeof(AbpAccountWebIdentityServerModule),
         typeof(AbpAccountApplicationModule),
         typeof(AbpAspNetCoreMvcUiMultiTenancyModule),
@@ -69,7 +74,8 @@ namespace AuthServer.Host
         typeof(AbpTenantManagementEntityFrameworkCoreModule),
         typeof(AbpAspNetCoreAuthenticationJwtBearerModule),
         typeof(AbpDbFinderMultiTenancyModule),
-        typeof(AbpCAPEventBusModule)
+        typeof(AbpCAPEventBusModule),
+        typeof(AbpAliyunSmsModule)
         )]
     public class AuthIdentityServerModule : AbpModule
     {
@@ -114,6 +120,11 @@ namespace AuthServer.Host
                     options.InitVectorBytes = encryptionConfiguration.GetSection("InitVector").Exists() 
                         ? Encoding.ASCII.GetBytes(encryptionConfiguration["InitVector"])
                         : options.InitVectorBytes;
+
+                    var keySizeConfig = encryptionConfiguration.GetSection("Keysize");
+                    options.Keysize = keySizeConfig.Exists()
+                        ? keySizeConfig.Get<int>()
+                        : options.Keysize;
                 }
             });
 
@@ -134,10 +145,19 @@ namespace AuthServer.Host
                 options.InstanceName = configuration["Redis:InstanceName"];
             });
 
+            Configure<AbpVirtualFileSystemOptions>(options =>
+            {
+                options.FileSets.AddEmbedded<AuthIdentityServerModule>("AuthServer");
+            });
+
             Configure<AbpLocalizationOptions>(options =>
             {
                 options.Languages.Add(new LanguageInfo("en", "en", "English"));
                 options.Languages.Add(new LanguageInfo("zh-Hans", "zh-Hans", "简体中文"));
+
+                options.Resources
+                    .Get<AccountResource>()
+                    .AddVirtualJson("/Localization/Resources");
             });
 
             Configure<AbpAuditingOptions>(options =>
@@ -149,7 +169,11 @@ namespace AuthServer.Host
             Configure<AppUrlOptions>(options =>
             {
                 options.Applications["MVC"].RootUrl = configuration["App:SelfUrl"];
+                // 邮件登录地址
+                options.Applications["MVC"].Urls[LINGYUN.Abp.Account.AccountUrlNames.MailLoginVerify] = "Account/VerifyCode";
             });
+
+            context.Services.ConfigureNonBreakingSameSiteCookies();
 
             // context.Services.AddAuthentication();
             context.Services.AddAuthentication()
@@ -208,15 +232,17 @@ namespace AuthServer.Host
                 app.UseHsts();
             }
 
-            app.UseHttpsRedirection();
+            // app.UseHttpsRedirection();
+            app.UseCookiePolicy();
             app.UseCorrelationId();
             app.UseVirtualFiles();
             app.UseRouting();
             app.UseCors(DefaultCorsPolicyName);
+            app.UseWeChatSignature();
+            app.UseMultiTenancy();
             app.UseAuthentication();
             app.UseJwtTokenMiddleware();
             app.UseAbpClaimsMap();
-            app.UseMultiTenancy();
             app.UseAbpRequestLocalization();
             app.UseIdentityServer();
             app.UseAuthorization();
