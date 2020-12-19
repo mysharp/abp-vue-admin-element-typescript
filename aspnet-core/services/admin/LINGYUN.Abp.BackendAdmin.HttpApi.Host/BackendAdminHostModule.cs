@@ -1,6 +1,5 @@
 ﻿using DotNetCore.CAP;
 using LINGYUN.Abp.Auditing;
-using LINGYUN.Abp.BackendAdmin.MultiTenancy;
 using LINGYUN.Abp.EventBus.CAP;
 using LINGYUN.Abp.ExceptionHandling;
 using LINGYUN.Abp.ExceptionHandling.Emailing;
@@ -10,6 +9,7 @@ using LINGYUN.Abp.MultiTenancy.DbFinder;
 using LINGYUN.Abp.PermissionManagement.Identity;
 using LINGYUN.Abp.SettingManagement;
 using LINGYUN.Abp.TenantManagement;
+using LINGYUN.Abp.WeChat.SettingManagement;
 using LINGYUN.ApiGateway;
 using LINGYUN.Platform;
 using LINYUN.Abp.Sms.Aliyun;
@@ -79,6 +79,7 @@ namespace LINGYUN.Abp.BackendAdmin
         typeof(AbpAuditingHttpApiModule),
         typeof(AbpTenantManagementApplicationModule),
         typeof(AbpTenantManagementHttpApiModule),
+        typeof(AbpWeChatSettingManagementModule),// 微信配置管理模块
         typeof(AbpEntityFrameworkCoreMySQLModule),
         typeof(AbpIdentityEntityFrameworkCoreModule),// 用户角色权限需要引用包
         typeof(AbpIdentityServerEntityFrameworkCoreModule), // 客户端权限需要引用包
@@ -119,6 +120,16 @@ namespace LINGYUN.Abp.BackendAdmin
         {
             var hostingEnvironment = context.Services.GetHostingEnvironment();
             var configuration = hostingEnvironment.BuildConfiguration();
+
+            // 请求代理配置
+            Configure<ForwardedHeadersOptions>(options =>
+            {
+                configuration.GetSection("App:Forwarded").Bind(options);
+                // 对于生产环境,为安全考虑需要在配置中指定受信任代理服务器
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
+
             // 配置Ef
             Configure<AbpDbContextOptions>(options =>
             {
@@ -205,10 +216,18 @@ namespace LINGYUN.Abp.BackendAdmin
                 options.IsEnabled = true;
             });
 
-            Configure<AbpTenantResolveOptions>(options =>
+            var tenantResolveCfg = configuration.GetSection("App:Domains");
+            if (tenantResolveCfg.Exists())
             {
-                options.TenantResolvers.Insert(0, new AuthorizationTenantResolveContributor());
-            });
+                Configure<AbpTenantResolveOptions>(options =>
+                {
+                    var domains = tenantResolveCfg.Get<string[]>();
+                    foreach (var domain in domains)
+                    {
+                        options.AddDomainTenantResolver(domain);
+                    }
+                });
+            }
 
             Configure<AbpAuditingOptions>(options =>
             {
@@ -297,6 +316,8 @@ namespace LINGYUN.Abp.BackendAdmin
         public override void OnApplicationInitialization(ApplicationInitializationContext context)
         {
             var app = context.GetApplicationBuilder();
+            // 代理的中间件应放在其他中间件之前
+            app.UseForwardedHeaders();
             // http调用链
             app.UseCorrelationId();
             // 虚拟文件系统
@@ -325,6 +346,9 @@ namespace LINGYUN.Abp.BackendAdmin
             // app.UseWeChatSignature();
             // 路由
             app.UseConfiguredEndpoints();
+
+            // 调试代理连接信息用,上线后注释掉
+            app.UseProxyConnectTest();
 
             if (context.GetEnvironment().IsDevelopment())
             {

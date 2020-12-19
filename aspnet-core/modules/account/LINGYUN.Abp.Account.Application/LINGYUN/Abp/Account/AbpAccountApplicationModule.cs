@@ -1,13 +1,14 @@
-﻿using LINGYUN.Abp.WeChat.Authorization;
+﻿using LINGYUN.Abp.Identity;
+using LINGYUN.Abp.WeChat.MiniProgram;
 using Volo.Abp.Modularity;
 
 namespace LINGYUN.Abp.Account
 {
     [DependsOn(
-        typeof(AbpAccountDomainModule), 
         typeof(Volo.Abp.Account.AbpAccountApplicationModule),
         typeof(AbpAccountApplicationContractsModule),
-        typeof(AbpWeChatAuthorizationModule))]
+        typeof(AbpIdentityDomainModule),
+        typeof(AbpWeChatMiniProgramModule))]
     public class AbpAccountApplicationModule : AbpModule
     {
 
