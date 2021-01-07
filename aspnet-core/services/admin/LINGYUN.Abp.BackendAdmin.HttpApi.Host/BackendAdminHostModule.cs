@@ -62,7 +62,7 @@ namespace LINGYUN.Abp.BackendAdmin
 {
     [DependsOn(
         typeof(AbpAspNetCoreMvcUiMultiTenancyModule),
-        typeof(AppPlatformApplicationContractModule),
+        typeof(PlatformApplicationContractModule),
         typeof(ApiGatewayApplicationContractsModule),
         typeof(AbpFileManagementApplicationContractsModule),
         typeof(AbpMessageServiceApplicationContractsModule),
@@ -179,7 +179,8 @@ namespace LINGYUN.Abp.BackendAdmin
                 // 是否发送堆栈信息
                 options.SendStackTrace = true;
                 // 未指定异常接收者的默认接收邮件
-                options.DefaultReceiveEmail = "colin.in@foxmail.com";
+                // 请指定自己的邮件地址
+                // options.DefaultReceiveEmail = "colin.in@foxmail.com";
             });
 
 

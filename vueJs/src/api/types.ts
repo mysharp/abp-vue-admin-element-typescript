@@ -146,6 +146,16 @@ export class ExtensibleEntity<TKey> extends ExtensibleObject {
   id!: TKey
 }
 
+export class ExtensibleCreationAuditedEntity<TKey> extends ExtensibleEntity<TKey> {
+  creationTime!: Date
+  creatorId?: string
+}
+
+export class ExtensibleAuditedEntity<TKey> extends ExtensibleCreationAuditedEntity<TKey> {
+  lastModificationTime?: Date
+  lastModifierId?: string
+}
+
 export interface IHasExtraProperties {
   extraProperties: {[key: string]: any}
 }
@@ -275,4 +285,9 @@ export class Claim implements IClaim {
     this.type = type
     this.value = value
   }
+}
+
+export class KeyValue<TKey, TValue> {
+  key!: TKey
+  value?: TValue
 }

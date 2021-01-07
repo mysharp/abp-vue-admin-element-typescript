@@ -4,8 +4,9 @@
 
 #### 注意
 
-* 由于 CAP 官方模块中, MySqlConnector 为高版本,与 Volo.Abp.EntityFrameworkCore.MySQL 依赖版本不兼容  
-当 Abp 框架升级到 4.0 版本之后,此模块升级为 CAP 最新版本
+* 自定义事件处理器接口 ICustomDistributedEventSubscriber 未实现,当前的分布式事件只能由 CustomDistributedEventSubscriber 在启动中发现  
+
+* 由于 CAP 不支持同一事件参数的多个消费者,在 ConsumerServiceSelector 接口通过消费者的类全名创建一个新的Group
 
 ## 配置使用
 

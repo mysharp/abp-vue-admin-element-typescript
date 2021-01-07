@@ -129,6 +129,7 @@
         <member name="P:LINGYUN.Abp.EventBus.CAP.AbpCAPEventBusOptions.NotifyFailedCallback">
             <summary>
             发布消息处理失败通知
+            default: false
             </summary>
         </member>
         <member name="P:LINGYUN.Abp.EventBus.CAP.AbpCAPEventBusOptions.CleanUpExpiresMessageBatch">

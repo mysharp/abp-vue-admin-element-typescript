@@ -30,8 +30,8 @@ namespace LINGYUN.Abp.Account
         protected IIdentityUserRepository UserRepository { get; }
         protected IUserSecurityCodeSender SecurityCodeSender { get; }
         protected IWeChatOpenIdFinder WeChatOpenIdFinder { get; }
-        protected AbpWeChatMiniProgramOptions MiniProgramOptions { get; }
-
+        protected IOptions<IdentityOptions> IdentityOptions { get; }
+        protected AbpWeChatMiniProgramOptionsFactory MiniProgramOptionsFactory { get; }
         protected IDistributedCache<SmsSecurityTokenCacheItem> SecurityTokenCache { get; }
 
         public AccountAppService(
@@ -42,7 +42,8 @@ namespace LINGYUN.Abp.Account
             IIdentityUserRepository userRepository,
             IUserSecurityCodeSender securityCodeSender,
             IDistributedCache<SmsSecurityTokenCacheItem> securityTokenCache,
-            IOptions<AbpWeChatMiniProgramOptions> miniProgramOptions)
+            AbpWeChatMiniProgramOptionsFactory miniProgramOptionsFactory,
+            IOptions<IdentityOptions> identityOptions)
         {
             TotpService = totpService;
             UserStore = userStore;
@@ -51,7 +52,8 @@ namespace LINGYUN.Abp.Account
             WeChatOpenIdFinder = weChatOpenIdFinder;
             SecurityCodeSender = securityCodeSender;
             SecurityTokenCache = securityTokenCache;
-            MiniProgramOptions = miniProgramOptions.Value;
+            MiniProgramOptionsFactory = miniProgramOptionsFactory;
+            IdentityOptions = identityOptions;
 
             LocalizationResource = typeof(AccountResource);
         }
@@ -59,9 +61,13 @@ namespace LINGYUN.Abp.Account
         public virtual async Task RegisterAsync(WeChatRegisterDto input)
         {
             ThowIfInvalidEmailAddress(input.EmailAddress);
-            await CheckSelfRegistrationAsync();
 
-            var wehchatOpenId = await WeChatOpenIdFinder.FindAsync(input.Code, MiniProgramOptions.AppId, MiniProgramOptions.AppSecret);
+            await CheckSelfRegistrationAsync();
+            await IdentityOptions.SetAsync();
+
+            var options = await MiniProgramOptionsFactory.CreateAsync();
+
+            var wehchatOpenId = await WeChatOpenIdFinder.FindAsync(input.Code, options.AppId, options.AppSecret);
 
             var user = await UserManager.FindByLoginAsync(AbpWeChatMiniProgramConsts.ProviderKey, wehchatOpenId.OpenId);
             if (user != null)
@@ -128,6 +134,7 @@ namespace LINGYUN.Abp.Account
         public virtual async Task RegisterAsync(PhoneRegisterDto input)
         {
             await CheckSelfRegistrationAsync();
+            await IdentityOptions.SetAsync();
             await CheckNewUserPhoneNumberNotBeUsedAsync(input.PhoneNumber);
 
             var securityTokenCacheKey = SmsSecurityTokenCacheItem.CalculateCacheKey(input.PhoneNumber, "SmsVerifyCode");
@@ -221,6 +228,7 @@ namespace LINGYUN.Abp.Account
             {
                 throw new UserFriendlyException(L["InvalidSmsVerifyCode"]);
             }
+            await IdentityOptions.SetAsync();
             // 传递 isConfirmed 用户必须是已确认过手机号的
             var user = await GetUserByPhoneNumberAsync(input.PhoneNumber, isConfirmed: true);
             // 验证二次认证码

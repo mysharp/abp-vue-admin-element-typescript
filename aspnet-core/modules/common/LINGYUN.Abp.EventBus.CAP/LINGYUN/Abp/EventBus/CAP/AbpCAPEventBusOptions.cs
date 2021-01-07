@@ -7,6 +7,7 @@
     {
         /// <summary>
         /// 发布消息处理失败通知
+        /// default: false
         /// </summary>
         public bool NotifyFailedCallback { get; set; } = false;
         /// <summary>
@@ -18,6 +19,6 @@
         /// 执行间隔(ms)
         /// default: 3600000 (1 hours)
         /// </summary>
-        public int CleanUpExpiresMessageInterval { get; set; } = 3600000;
+        public int CleanUpExpiresMessageInterval { get; set; } = 360_0000;
     }
 }
